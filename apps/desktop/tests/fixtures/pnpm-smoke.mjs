@@ -13,9 +13,11 @@ import { delimiter, join } from 'node:path'
  * @returns {Promise<void>} Resolves after execution and removal of the private installation.
  */
 export async function checkPnpm(resourcesRuntime) {
-  assert.ok(process.versions.electron, 'Run the package-manager smoke with Electron Node mode')
-  assert.equal(existsSync(join(resourcesRuntime, 'pnpm')), false, 'Desktop must ship only primary-runtime pnpm')
   const primary = join(resourcesRuntime, 'primary-runtime')
+  // macOS and Windows run dsh on Electron's Node mode; Linux runs the shipped interpreter.
+  assert.ok(process.versions.electron !== undefined || process.execPath === join(primary, 'dependencies', 'node', 'bin', 'node'),
+    'Run the package-manager smoke with the packaged interpreter')
+  assert.equal(existsSync(join(resourcesRuntime, 'pnpm')), false, 'Desktop must ship only primary-runtime pnpm')
   const pnpm = join(primary, 'dependencies', 'pnpm', 'bin', 'pnpm.mjs')
   const versions = JSON.parse(readFileSync(join(resourcesRuntime, 'versions.json'), 'utf8'))
   const manifest = JSON.parse(readFileSync(join(primary, 'runtime.json'), 'utf8'))
@@ -36,7 +38,7 @@ export async function checkPnpm(resourcesRuntime) {
 const assert = require('node:assert/strict')
 assert.equal(require('desktop-pnpm-smoke-dependency').answer, 42)
 assert.equal(process.execPath, ${JSON.stringify(process.execPath)})
-assert.ok(process.versions.electron)
+assert.equal(process.versions.electron ?? null, ${JSON.stringify(process.versions.electron ?? null)})
 assert.ok(process.execArgv.includes('--expose-internals'))
 assert.equal(typeof require('internal/modules/esm/loader').getOrInitializeCascadedLoader, 'function')
 console.log('desktop-node-script-ok')

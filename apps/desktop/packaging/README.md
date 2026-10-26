@@ -97,7 +97,15 @@ pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
 ```
 
-The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux is not a supported Desktop release target.
+The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64.
+
+Linux x64 is a local build target, not a signed release target:
+
+```sh
+pnpm run package:desktop:linux:x64
+```
+
+It produces an unsigned deb with no signing, update feed, or upload path, so the artifact keeps the `-unsigned` suffix. The package installs to `/opt/deepseek-harness`: the path stays free of spaces because the setuid sandbox cannot launch a zygote from a path containing one. The dsh Host runs on the bundled Node interpreter, and the dsh tree stays outside ASAR so that interpreter can read it. The `Package Desktop · Linux` [manual workflow](../../../.github/workflows/linux-package.yml) builds the same deb on a GitHub-hosted runner and retains it as a workflow artifact for 14 days.
 
 Both release and local unsigned macOS DMGs use LZMA compression (`dmg.format: 'ULMO'`) in [the electron-builder configuration](../scripts/electron-builder-config.mjs). A [build-time patch](../../../patches/app-builder-lib@26.17.0.patch) adds this format to the pinned builder's validation and TypeScript declarations.
 

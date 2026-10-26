@@ -66,7 +66,8 @@ export function createElectronBuilderConfig(
   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
   const packagesWindows = resolvedPlatform === 'win32'
-  const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
+  const packagesLinux = resolvedPlatform === 'linux'
+  const policy = packagesLinux || (packagesMacOS && unsigned) ? undefined : resolveDesktopPolicyEnvironment(env)
   if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
@@ -114,9 +115,11 @@ export function createElectronBuilderConfig(
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    productName: 'DeepSeek Harness',
+    // The Linux install directory is /opt/${sanitizedProductName}; a space there breaks the
+    // setuid sandbox's zygote exec. The desktop entry below keeps the branded display name.
+    productName: packagesLinux ? 'deepseek-harness' : 'DeepSeek Harness',
     // The default copyright uses author.name; this line names the product instead.
-    copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
+    copyright: `Copyright © ${new Date().getFullYear()} DeepSeek Harness`,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
     artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
@@ -149,12 +152,20 @@ export function createElectronBuilderConfig(
       'package.json',
       '!node_modules/**/*.{js,cjs,mjs,ts,cts,mts,css}.map',
       '!node_modules/**/*.tsbuildinfo',
-      { from: buildPaths.dsh, to: 'dsh', filter: ['**/*'] },
-      // electron-builder excludes a source directory's root node_modules.
-      { from: join(buildPaths.dsh, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] },
+      // The dsh tree stays outside ASAR on Linux, where the shipped Node cannot read inside it.
+      ...(packagesLinux ? [] : [
+        { from: buildPaths.dsh, to: 'dsh', filter: ['**/*'] },
+        // electron-builder excludes a source directory's root node_modules.
+        { from: join(buildPaths.dsh, 'node_modules'), to: 'dsh/node_modules', filter: ['**/*'] },
+      ]),
     ],
     asarUnpack: unpack,
     extraResources: [
+      ...(packagesLinux ? [
+        { from: buildPaths.dsh, to: 'dsh' },
+        // electron-builder drops a copied directory's root node_modules; copy it separately.
+        { from: join(buildPaths.dsh, 'node_modules'), to: 'dsh/node_modules' },
+      ] : []),
       { from: buildPaths.runtime, to: 'runtime' },
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
@@ -252,9 +263,20 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
+      icon: fileURLToPath(new URL('../resources/linux-icons', import.meta.url)),
       category: 'Development',
-      target: ['AppImage'],
+      executableName: 'deepseek-harness',
+      // Match the .desktop filename to Electron's app_id so GNOME associates the window with its launcher.
+      syncDesktopName: true,
+      maintainer: 'Hangzhou DeepSeek Artificial Intelligence Co., Ltd.',
+      vendor: 'DeepSeek',
+      synopsis: 'DeepSeek Harness',
+      // productName is space-free for the install path; the menu keeps the branded name.
+      desktop: { entry: { Name: 'DeepSeek Harness' } },
+      target: ['deb'],
     },
+    // Keep electron-builder's default postinst: it updates the desktop/MIME caches, installs the
+    // AppArmor profile, and sets up the setuid sandbox when user namespaces are unavailable.
     nsis: {
       uninstallDisplayName: '${productName}',
       installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),

@@ -97,7 +97,15 @@ pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
 ```
 
-macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux 不是受支持的 Desktop 发布目标。
+macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。
+
+Linux x64 是本地构建目标，不是签名发布目标：
+
+```sh
+pnpm run package:desktop:linux:x64
+```
+
+它生成未签名 deb，不读取签名、更新源或上传凭据，产物保留 `-unsigned` 后缀。安装目录为 `/opt/deepseek-harness`：路径不含空格，因为 setuid 沙箱无法从包含空格的路径启动 zygote。dsh Host 使用随包 Node 解释器运行，dsh 树位于 ASAR 之外，以便该解释器读取。`Package Desktop · Linux` [手动工作流](../../../.github/workflows/linux-package.yml) 在 GitHub 托管 runner 上构建同一 deb，并保留为 14 天的工作流产物。
 
 macOS 正式发布和本地未签名 DMG 都通过 [electron-builder 配置](../scripts/electron-builder-config.mjs)中的 `dmg.format: 'ULMO'` 使用 LZMA 压缩。[构建时补丁](../../../patches/app-builder-lib@26.17.0.patch)为固定版本 builder 的校验规则和 TypeScript 声明添加此格式。
 

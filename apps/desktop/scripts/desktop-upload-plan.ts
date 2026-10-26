@@ -16,11 +16,13 @@ import { validateDesktopBuildVersion } from './desktop-build-version.mjs'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
+/** Released targets with an upload feed; the local Linux build is never uploaded. */
+type DesktopUploadTargetName = Exclude<DesktopPackageTargetName, 'linux-x64'>
 const TARGETS = {
   'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
   'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
   'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
+} as const satisfies Record<DesktopUploadTargetName, {
   readonly platform: NodeJS.Platform
   readonly arch: string
   readonly os: string
@@ -181,6 +183,9 @@ export async function createDesktopUploadPlan(
   targetName: DesktopPackageTargetName,
   options: DesktopUploadPlanOptions = {},
 ): Promise<DesktopUploadPlan> {
+  if (targetName === 'linux-x64') {
+    throw new Error('desktop upload: linux-x64 is a local build and has no upload target')
+  }
   const target = TARGETS[targetName]
   if (target === undefined) {
     throw new Error(`desktop upload: unsupported target ${String(targetName)}`)
