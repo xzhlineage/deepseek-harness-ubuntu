@@ -1031,8 +1031,11 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
+  const trayIconName = process.platform === 'linux' ? 'tray-linux.png' : 'tray-windows.ico'
+  const trayIconPath = development
+    ? join(app.getAppPath(), 'resources', trayIconName)
+    : join(process.resourcesPath, process.platform === 'linux' ? 'tray-linux.png' : 'tray.ico')
+  if (process.platform === 'win32' || process.platform === 'linux') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,

@@ -1,11 +1,12 @@
 /**
- * Render the Windows tray icon with an enlarged whale from `resources/icon-windows.svg`.
+ * Render the tray icons with an enlarged whale from `resources/icon-windows.svg`.
  *
  * The tray shows the icon at 16 logical pixels, so Windows picks one of the
  * bundled bitmaps by display scale. Each size is rasterized from the vector
  * source separately instead of downscaling one large bitmap, which keeps edges
- * crisp at every scale. The committed `resources/tray-windows.ico` is the output;
- * rerun `pnpm run render:tray-icon` in `apps/desktop` after changing the vector source.
+ * crisp at every scale. Windows reads `resources/tray-windows.ico`; Linux reads
+ * the 32 px `resources/tray-linux.png`. Rerun `pnpm run render:tray-icon` in
+ * `apps/desktop` after changing the vector source.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
@@ -20,7 +21,11 @@ export const TRAY_ICON_SIZES = [16, 20, 24, 32, 40, 48, 64] as const
 export const TRAY_ICON_PATHS = {
   source: fileURLToPath(new URL('../resources/icon-windows.svg', import.meta.url)),
   output: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)),
+  linuxOutput: fileURLToPath(new URL('../resources/tray-linux.png', import.meta.url)),
 } as const
+
+/** Edge length of the single PNG bitmap Linux StatusNotifier hosts read. */
+export const LINUX_TRAY_ICON_SIZE = 32
 
 /** Coordinate space of the vector source; sharp's SVG density is scaled against it. */
 const SOURCE_EDGE = 1024
@@ -117,7 +122,11 @@ function pngDimensions(png: Buffer): { width: number; height: number } {
 async function main(): Promise<void> {
   const entries = await renderTrayIconEntries(await readFile(TRAY_ICON_PATHS.source))
   await writeFile(TRAY_ICON_PATHS.output, packIco(entries))
+  const linux = entries.find(entry => entry.size === LINUX_TRAY_ICON_SIZE)
+  if (linux === undefined) throw new Error(`tray icon: render the ${String(LINUX_TRAY_ICON_SIZE)} px Linux bitmap`)
+  await writeFile(TRAY_ICON_PATHS.linuxOutput, linux.png)
   console.info(`tray icon: wrote ${TRAY_ICON_PATHS.output} with ${entries.map(entry => String(entry.size)).join(', ')} px bitmaps`)
+  console.info(`tray icon: wrote ${TRAY_ICON_PATHS.linuxOutput} at ${String(LINUX_TRAY_ICON_SIZE)} px`)
 }
 
 if (process.argv[1] !== undefined && import.meta.filename === resolve(process.argv[1])) await main()

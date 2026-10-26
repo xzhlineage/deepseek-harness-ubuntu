@@ -18,6 +18,19 @@ vi.mock('node:fs/promises', async importOriginal => ({
 }))
 
 describe('installer preparation preserves application dependencies', () => {
+  it('ships the Linux tray bitmap beside the packaged application', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_APP_ID: 'com.example.installer',
+      DSH_DESKTOP_UNSIGNED: '1',
+      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
+      DSH_DESKTOP_TARGET_ARCH: 'x64',
+    }, 'linux', 'x64')
+    const trayIcon = config.extraResources.find(resource => resource.to === 'tray-linux.png')
+    expect(trayIcon).toBeDefined()
+    expect(readFileSync(trayIcon!.from)).toEqual(readFileSync(new URL('../resources/tray-linux.png', import.meta.url)))
+  })
+
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',
